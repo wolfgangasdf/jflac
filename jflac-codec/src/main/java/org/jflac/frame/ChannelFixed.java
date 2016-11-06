@@ -24,6 +24,7 @@ import java.io.IOException;
 
 import org.jflac.ChannelData;
 import org.jflac.FixedPredictor;
+import org.jflac.FrameDecodeException;
 import org.jflac.io.BitInputStream;
 
 /**
@@ -47,10 +48,11 @@ public class ChannelFixed extends Channel {
      * @param wastedBits    The bits waisted in the frame
      * @param order         The predicate order
      * @throws IOException  Thrown if error reading from the InputBitStream
+     * @throws FrameDecodeException 
      */
-    public ChannelFixed(BitInputStream is, Header header, ChannelData channelData, int bps, int wastedBits, int order) throws IOException {
+    public ChannelFixed(BitInputStream is, Header header, ChannelData channelData, int bps, int wastedBits, int order) throws IOException, FrameDecodeException {
         super(header, wastedBits);
-
+        
         this.residual = channelData.getResidual();
         this.order = order;
 
@@ -61,21 +63,21 @@ public class ChannelFixed extends Channel {
 
         // read entropy coding method info
         int type = is.readRawUInt(ENTROPY_CODING_METHOD_TYPE_LEN);
-        EntropyPartitionedRice pr;
+        EntropyCodingMethod pr;
         switch (type) {
-        	case ENTROPY_CODING_METHOD_PARTITIONED_RICE2 :
-            case ENTROPY_CODING_METHOD_PARTITIONED_RICE :            
-                int u32 = is.readRawUInt(ENTROPY_CODING_METHOD_PARTITIONED_RICE_ORDER_LEN);
+            case ENTROPY_CODING_METHOD_PARTITIONED_RICE :
                 pr = new EntropyPartitionedRice();
-                entropyCodingMethod = pr;
-                pr.order = u32;
-                pr.contents = channelData.getPartitionedRiceContents();
-                pr.readResidual(is, order, pr.order, header, channelData.getResidual(), 
-                		(type == ENTROPY_CODING_METHOD_PARTITIONED_RICE2));
+                break;
+            case RESIDUAL_CODING_METHOD_PARTITIONED_RICE2 :
+                pr = new EntropyPartitionedRice2();
                 break;
             default :
-                throw new IOException("STREAM_DECODER_UNPARSEABLE_STREAM");
+                throw new FrameDecodeException("STREAM_DECODER_UNPARSEABLE_STREAM, type:"+type);
         }
+		entropyCodingMethod = pr;
+		pr.order = is.readRawUInt(ENTROPY_CODING_METHOD_PARTITIONED_RICE_ORDER_LEN);
+		pr.contents = channelData.getPartitionedRiceContents();
+		pr.readResidual(is, order, pr.order, header, channelData.getResidual());
 
         // decode the subframe
         System.arraycopy(warmup, 0, channelData.getOutput(), 0, order);

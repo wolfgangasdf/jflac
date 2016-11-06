@@ -63,8 +63,7 @@ public class RandomFileInputStream extends InputStream {
      * @see java.io.InputStream#reset()
      */
     public synchronized void reset() {
-        /** TODO */
-        System.out.println("RandomFileInputStream: reset");
+        throw new UnsupportedOperationException("reset");
     }
     
     /**
@@ -76,27 +75,35 @@ public class RandomFileInputStream extends InputStream {
         randomFile.close();
     }
     
+    /** returns length of underline file
+     * 
+     * @return length of file
+     * @throws IOException
+     */
+    public long getLength() throws IOException {
+    	return randomFile.length();
+    }
+    
     /**
      * Is file marking supported.
      * @return true if file marking is supported
      * @see java.io.InputStream#markSupported()
      */
     public boolean markSupported() {
-        return true;
+        return false;
     }
     
     /**
      * @see java.io.InputStream#mark(int)
      */
-    public synchronized void mark(int arg0) {
-        /** TODO */
-        System.out.println("RandomFileInputStream: mark");
+    public synchronized void mark(int pos) {
+    	 throw new UnsupportedOperationException("mark");
     }
     
     /**
      * Skip bytes in the input file.
      * @param bytes The number of bytes to skip
-     * @return the number of bytes skiped
+     * @return the number of bytes skipped
      * @throws IOException on IO error
      * @see java.io.InputStream#skip(long)
      */
@@ -139,12 +146,12 @@ public class RandomFileInputStream extends InputStream {
         randomFile.seek(pos);
     }
     
-    /**
-     * Return the length (in bytes) of the file
-     * @return number of bytes length of the file
-     * @throws IOException On file error
+    /** returns current read position in file
+     * 
+     * @return
+     * @throws IOException
      */
-    public long getLength() throws IOException {
-    	return randomFile.length();
+    public long getPosition() throws IOException {
+    	return randomFile.getFilePointer();
     }
 }

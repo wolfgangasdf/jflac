@@ -20,6 +20,8 @@ package org.jflac;
  * Boston, MA  02111-1307, USA.
  */
 
+import java.io.File;
+
 import org.jflac.frame.EntropyPartitionedRiceContents;
 import org.jflac.io.BitOutputStream;
 
@@ -223,6 +225,10 @@ public class FLACEncoder {
          */
         
         state = STREAM_ENCODER_UNINITIALIZED;
+    }
+    
+    public void encode(File inputFile, File outputFile) {
+    	 throw new UnsupportedOperationException("encode");
     }
     
     /*

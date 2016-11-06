@@ -261,6 +261,7 @@ public abstract class RingedAudioInputStream extends AudioInputStream {
      *         stream is reached.
      * @exception IOException
      *                if an I/O error occurs.
+     * @see #in
      */
     public synchronized int read() throws IOException {
         fill();
@@ -391,6 +392,7 @@ public abstract class RingedAudioInputStream extends AudioInputStream {
      *         without blocking.
      * @exception IOException
      *                if an I/O error occurs.
+     * @see #in
      */
     public synchronized int available() throws IOException {
         checkIfStillOpen();

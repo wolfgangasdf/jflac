@@ -20,13 +20,15 @@ package org.jflac.apps;
  */
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
-import org.jflac.FrameListener;
 import org.jflac.FLACDecoder;
+import org.jflac.FrameListener;
 import org.jflac.frame.Frame;
+import org.jflac.io.RandomFileInputStream;
 import org.jflac.metadata.Metadata;
+import org.jflac.metadata.SeekPoint;
+import org.jflac.metadata.StreamInfo;
 
 /**
  * Test FLAC file application.
@@ -36,17 +38,37 @@ public class Tester implements FrameListener {
     private int errors = 0;
     
     /**
-     * Analyse an input FLAC file.
+     * Analyze an input FLAC file.
      * @param inFileName The input file name
      * @throws IOException thrown if error reading file
      */
     public void test(String inFileName) throws IOException {
-        System.out.println("FLAX Tester for " + inFileName);
         FileInputStream is = new FileInputStream(inFileName);
         FLACDecoder decoder = new FLACDecoder(is);
         decoder.addFrameListener(this);
-        decoder.decode();
+        decoder.decode();        
         System.out.println(errors + " errors found!");
+        is.close();
+    }
+    /**
+     * Seek testing 
+     * @param inFileName
+     * @param time
+     * @throws IOException
+     */
+    public void test2(String inFileName, long time) throws IOException {
+    	RandomFileInputStream is = new RandomFileInputStream(inFileName);
+        FLACDecoder decoder = new FLACDecoder(is);
+        decoder.readMetadata();;
+        StreamInfo si = decoder.getStreamInfo();
+        long pos = time*si.getSampleRate();
+        System.out.println("Seeking to "+pos+" sample");
+        SeekPoint sp = decoder.seek(pos);
+        System.out.println("Found point "+sp);
+        if (sp != null)
+        	decoder.decodeFrames();
+        System.out.println(errors + " errors found!");
+        is.close();
     }
     
     /**
@@ -83,10 +105,13 @@ public class Tester implements FrameListener {
     public static void main(String[] args) {
         try {
             Tester tester = new Tester();
-            tester.test(args[0]);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+            System.out.println("FLAX Tester for " + args[0]);
+            if (args.length > 1) {
+            	if ("2".equals(args[1]) && args.length > 2)
+            		tester.test2(args[0], Long.parseLong(args[2]));
+            } else
+            	tester.test(args[0]);
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

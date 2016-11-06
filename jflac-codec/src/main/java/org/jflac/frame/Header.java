@@ -75,12 +75,14 @@ public class Header {
         int blocksizeHint = 0;
         int sampleRateHint = 0;
         ByteData rawHeader = new ByteData(16); // MAGIC NUMBER based on the maximum frame header size, including CRC
+        boolean isKnownVariableBlockSizeStream = (streamInfo != null && streamInfo.getMinBlockSize() != streamInfo.getMaxBlockSize());
+        boolean isKnownFixedBlockSizeStream = (streamInfo != null && streamInfo.getMinBlockSize() == streamInfo.getMaxBlockSize());
         
         // init the raw header with the saved bits from synchronization
         rawHeader.append(headerWarmup[0]);
         rawHeader.append(headerWarmup[1]);
         
-        // check to make sure that the reserved bit is 0
+        // check to make sure that the reserved bits are 0
         if ((rawHeader.getData(1) & 0x02) != 0) { // MAGIC NUMBER
             throw new BadHeaderException("Bad Magic Number: " + (rawHeader.getData(1) & 0xff));
         }
@@ -92,6 +94,7 @@ public class Header {
         // read in the raw header as bytes so we can CRC it, and parse it on the way
         for (int i = 0; i < 2; i++) {
             if (is.peekRawUInt(8) == 0xff) { // MAGIC NUMBER for the first 8 frame sync bits
+            	is.readRawUInt(8); // move ff
                 throw new BadHeaderException("Found sync byte");
             }
             rawHeader.append((byte) is.readRawUInt(8));
@@ -99,8 +102,11 @@ public class Header {
         
         int bsType = (rawHeader.getData(2) >> 4) & 0x0f;
         switch (bsType) {
-            case 0 :                
-                throw new BadHeaderException("Unknown Block Size (0)");                
+            case 0 :
+                if (!isKnownFixedBlockSizeStream)
+                    throw new BadHeaderException("Unknown Block Size (0)");
+                blockSize = streamInfo.getMinBlockSize();
+                break;
             case 1 :
                 blockSize = 192;
                 break;
@@ -135,16 +141,16 @@ public class Header {
                 if (streamInfo == null)
                     throw new BadHeaderException("Bad Sample Rate (0)");
                 sampleRate = streamInfo.getSampleRate();
-                break;
+                break; // throw new BadHeaderException("Bad Sample Rate (" + srType + ")");
             case 1 :
-            	sampleRate = 88200;
+                sampleRate = 88200;
                 break;
             case 2 :
-            	sampleRate = 176400;
+                sampleRate = 176400;
                 break;
             case 3 :
-            	sampleRate = 192000;
-                break;
+                sampleRate = 192000;
+                break;               
             case 4 :
                 sampleRate = 8000;
                 break;
@@ -231,30 +237,22 @@ public class Header {
                 break;
         }
         
-        /* check to make sure that reserved bit is 0 */        
-        if ((rawHeader.getData(3) & 0x01) != 0) { /* MAGIC NUMBER */
-        	throw new BadHeaderException("Bad Magic Number: " + (rawHeader.getData(3) & 0x01));
+        if ((rawHeader.getData(3) & 0x01) != 0) { // this should be a zero padding bit
+            throw new BadHeaderException("this should be a zero padding bit");
         }
         
-        /* read the frame's starting sample number (or frame number as the case may be) */
-    	if(
-    		(rawHeader.getData(1) & 0x01) != 0 ||
-    		/*@@@ this clause is a concession to the old way of doing variable blocksize; the only known implementation is flake and can probably be removed without inconveniencing anyone */
-    		(streamInfo != null && streamInfo.getMinBlockSize() != streamInfo.getMaxBlockSize())
-    	) { /* variable blocksize */
+        if ((blocksizeHint != 0) && isKnownVariableBlockSizeStream) {
             sampleNumber = is.readUTF8Long(rawHeader);
             if (sampleNumber == 0xffffffffffffffffL) { // i.e. non-UTF8 code...
                 throw new BadHeaderException("Bad Sample Number");
             }
-    	}
-    	else
-    	{ /* fixed blocksize */
-            int lastFrameNumber = is.readUTF8Int(rawHeader);
-            if (lastFrameNumber == 0xffffffff) { // i.e. non-UTF8 code...
+        } else {
+        	frameNumber = is.readUTF8Int(rawHeader);
+            if (frameNumber == 0xffffffff) { // i.e. non-UTF8 code...
                 throw new BadHeaderException("Bad Last Frame");
             }
-            sampleNumber = (long) streamInfo.getMinBlockSize() * (long) lastFrameNumber;
-    	}
+            sampleNumber = (long) streamInfo.getMinBlockSize() * (long) frameNumber;
+        }
         
         if (blocksizeHint != 0) {
             int blockSizeCode = is.readRawUInt(8);
